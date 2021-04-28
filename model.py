@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 import torchvision
+from torch import optim
+import copy
+from generative_replay import WGAN
 
 
 def get_model(args):
@@ -100,3 +103,65 @@ class TinyEpisodicMemoryModel(BaseModel):
         preds = torch.argmax(logits, dim=1)
         accuracy = (torch.sum(preds == y)) / X.size(0)
         return accuracy, loss
+
+
+class GenerativeReplay(BaseModel):
+    def __init__(
+        self,
+        logit_masks,
+        image_size,
+        image_channel_size,
+        critic_channel_size,
+        generator_channel_size,
+        num_classes=100,
+    ):
+        super().__init__()
+        self.task_logit_masks = logit_masks
+
+        self.base = torchvision.models.resnet18(num_classes=num_classes)
+        self.gen = WGAN(
+            image_size, image_channel_size, critic_channel_size, generator_channel_size
+        )
+
+        gen_g_optimizer = optim.Adam(
+            self.gen.generator.parameters(),
+            lr=1e-3,
+            weight_decay=1e-5,
+            betas=(0.5, 0.9),
+        )
+        gen_c_optimizer = optim.Adam(
+            self.gen.critic.parameters(), lr=1e-3, weight_decay=1e-5, betas=(0.5, 0.9),
+        )
+        self.gen.set_lambda(10.0)
+        self.gen.set_generator_optimizer(gen_g_optimizer)
+        self.gen.set_critic_optimizer(gen_c_optimizer)
+        self.gen.set_critic_updates_per_generator_update(5)
+
+        self.prev_base = None
+        self.prev_gen = None
+
+    def get_loss(self, X, y):
+        batch_size = X.shape[0]
+        er_X, er_y = None, None
+        if self.prev_gen is not None:
+            er_X, er_y = self.sample(batch_size)
+            full_batch_X = torch.cat((X, er_X))
+            full_batch_y = torch.cat((y, er_y))
+        else:
+            full_batch_X = X
+            full_batch_y = y
+        logits = self.base(full_batch_X)
+
+        self.gen.train_a_batch(X, y, er_X, er_y)
+
+    def switch_task(self):
+        self.prev_base = copy.deepcopy(self.base)
+        self.prev_gen = copy.deepcopy(self.gen)
+
+    def sample(self, size):
+        if self.prev_gen is None:
+            return
+        x = self.prev_gen.sample(size)
+        prev_scores = self.prev_base(x)
+        _, y = torch.max(prev_scores, 1)
+        return x.data, y.data
