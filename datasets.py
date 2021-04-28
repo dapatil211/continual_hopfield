@@ -41,6 +41,8 @@ class FilteredDataset(torch.utils.data.Dataset):
             x = self.transform(x)
         return x
 
+def create_task_transform(task_id):
+    return transforms.Lambda(lambda x: (x[0], x[1], task_id))
 
 def create_split_cifar100(args):
     if args.cifar_split is not None and os.path.exists(args.cifar_split):
@@ -72,12 +74,12 @@ def create_split_cifar100(args):
         task_split = task_split[:3]
     else:
         task_split = task_split[3:]
+    
     for task_id, task in enumerate(task_split):
-        task_transform = transforms.Lambda(lambda x: (x[0], x[1], task_id))
         task_train_dataset = FilteredDataset(
             train_dataset,
             lambda x: x in task,
-            transform=task_transform,
+            transform=create_task_transform(task_id),
             metainfo_func=lambda dataset, i: dataset.targets[i],
         )
         split_train_dataloaders.append(
@@ -93,7 +95,7 @@ def create_split_cifar100(args):
         task_test_dataset = FilteredDataset(
             test_dataset,
             lambda x: x in task,
-            transform=task_transform,
+            transform=create_task_transform(task_id),
             metainfo_func=lambda dataset, i: dataset.targets[i],
         )
         split_test_dataloaders.append(
