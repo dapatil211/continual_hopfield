@@ -4,6 +4,7 @@ import random
 import torch
 import torchvision
 from torchvision import transforms
+import numpy as np
 
 
 def create_logit_masks(task_split, num_classes):
@@ -15,23 +16,30 @@ def create_logit_masks(task_split, num_classes):
 
 
 class FilteredDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset, filter_func):
+    def __init__(self, dataset, filter_func, transform=None, metainfo_func=None):
         super().__init__()
         self.indices = []
-        self.filter_func = filter_func
         self.dataset = dataset
+        self.filter_func = filter_func
+        self.transform = transform
+        if metainfo_func is None:
+            metainfo_func = lambda dataset, i: dataset[i]
+        self.metainfo_func = metainfo_func
         self.filter()
 
     def filter(self):
         for i in range(len(self.dataset)):
-            if self.filter_func(self.dataset[i]):
+            if self.filter_func(self.metainfo_func(self.dataset, i)):
                 self.indices.append(i)
 
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, index):
-        return self.dataset[self.indices[index]]
+        x = self.dataset[self.indices[index]]
+        if self.transform is not None:
+            x = self.transform(x)
+        return x
 
 
 def create_split_cifar100(args):
@@ -64,8 +72,14 @@ def create_split_cifar100(args):
         task_split = task_split[:3]
     else:
         task_split = task_split[3:]
-    for task in task_split:
-        task_train_dataset = FilteredDataset(train_dataset, lambda x: x[1] in task)
+    for task_id, task in enumerate(task_split):
+        task_transform = transforms.Lambda(lambda x: (x[0], x[1], task_id))
+        task_train_dataset = FilteredDataset(
+            train_dataset,
+            lambda x: x in task,
+            transform=task_transform,
+            metainfo_func=lambda dataset, i: dataset.targets[i],
+        )
         split_train_dataloaders.append(
             torch.utils.data.DataLoader(
                 task_train_dataset,
@@ -76,7 +90,12 @@ def create_split_cifar100(args):
                 drop_last=True,
             )
         )
-        task_test_dataset = FilteredDataset(test_dataset, lambda x: x[1] in task)
+        task_test_dataset = FilteredDataset(
+            test_dataset,
+            lambda x: x in task,
+            transform=task_transform,
+            metainfo_func=lambda dataset, i: dataset.targets[i],
+        )
         split_test_dataloaders.append(
             torch.utils.data.DataLoader(
                 task_test_dataset,

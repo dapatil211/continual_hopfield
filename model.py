@@ -29,8 +29,8 @@ class ListBuffer(nn.Module):
     def __init__(self, buffer_size, img_size=(3, 32, 32)):
         super().__init__()
         self.X = torch.zeros((buffer_size,) + img_size)
-        self.y = torch.zeros((buffer_size,))
-        self.task_ids = torch.zeros((buffer_size,), dtype=torch.int)
+        self.y = torch.zeros((buffer_size,)).long()
+        self.task_ids = torch.zeros((buffer_size,), dtype=torch.long)
         self.num_added = 0
         self.num_viewed = 0
         self.buffer_size = buffer_size
@@ -72,7 +72,7 @@ class ListBuffer(nn.Module):
             sampled_inds = torch.arange(self.num_added)
         else:
             sampled_inds = torch.multinomial(torch.ones(self.num_added), batch_size)
-        return self.X[sampled_inds], self.y[sampled_inds], self.task_id[sampled_inds]
+        return self.X[sampled_inds], self.y[sampled_inds], self.task_ids[sampled_inds]
 
 
 class TinyEpisodicMemoryModel(BaseModel):
@@ -80,7 +80,7 @@ class TinyEpisodicMemoryModel(BaseModel):
         super().__init__()
         self.buffer = ListBuffer(buffer_size, img_size=img_size)
         self.base = torchvision.models.resnet18(num_classes=100)
-        self.task_logit_masks = logit_masks
+        self.task_logit_masks = torch.tensor(logit_masks)
         self.loss_fn = nn.CrossEntropyLoss()
 
     def get_loss(self, X, y, task_ids):
@@ -92,9 +92,11 @@ class TinyEpisodicMemoryModel(BaseModel):
         logits = self.base(full_batch_X)
         logits = logits * self.task_logit_masks[full_batch_task_ids]
         loss = self.loss_fn(logits, full_batch_y)
+        preds = torch.argmax(logits, dim=1)
+        accuracy = (torch.sum(preds == full_batch_y)) / full_batch_X.size(0)
 
         self.buffer.add_to_buffer(X, y, task_ids)
-        return loss
+        return loss, {"accuracy": accuracy}
 
     def get_metrics(self, X, y, task_ids):
         logits = self.base(X)
