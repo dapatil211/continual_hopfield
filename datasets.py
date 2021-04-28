@@ -44,6 +44,13 @@ class FilteredDataset(torch.utils.data.Dataset):
 def create_task_transform(task_id):
     return transforms.Lambda(lambda x: (x[0], x[1], task_id))
 
+def create_target_transform(task_split):
+    task_map = {}
+    for task in task_split:
+        for idx, cl in enumerate(task):
+            task_map[cl] = idx
+    return transforms.Lambda(lambda x: task_map[x])
+
 def create_split_cifar100(args):
     if args.cifar_split is not None and os.path.exists(args.cifar_split):
         with open(args.cifar_split) as f:
@@ -62,11 +69,12 @@ def create_split_cifar100(args):
             ),
         ]
     )
+    target_transform = create_target_transform(task_split) if args.same_head else None
     train_dataset = torchvision.datasets.CIFAR100(
-        "data/cifar100", download=True, transform=transform, train=True
+        "data/cifar100", download=True, transform=transform, target_transform=target_transform, train=True
     )
     test_dataset = torchvision.datasets.CIFAR100(
-        "data/cifar100", download=True, transform=transform, train=False
+        "data/cifar100", download=True, transform=transform, target_transform=target_transform, train=False
     )
     split_train_dataloaders = []
     split_test_dataloaders = []
