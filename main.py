@@ -76,7 +76,7 @@ def main(args):
     args.num_classes = num_classes
     args.logit_masks = logit_masks
     model = model_lib.get_model(args)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     wandb.init(
         config=args,
         project="continual-hopfield",
