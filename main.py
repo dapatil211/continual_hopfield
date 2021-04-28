@@ -66,6 +66,11 @@ def test_on_task_sequence(tasks, model, prev_accuracies):
 
 
 def main(args):
+    tasks, test_tasks, num_classes, logit_masks = datasets.get_dataloaders(args)
+    args.num_classes = num_classes
+    args.logit_masks = logit_masks
+    model = model_lib.get_model(args)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     wandb.init(
         config=args,
         project="continual-hopfield",
@@ -73,11 +78,6 @@ def main(args):
         job_type="cv" if args.cross_validation else "train",
         tags=[args.model_name, args.dataset_name],
     )
-    tasks, test_tasks, num_classes, logit_masks = datasets.get_dataloaders(args)
-    args.num_classes = num_classes
-    args.logit_masks = logit_masks
-    model = model_lib.get_model(args)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     wandb.watch(model)
     task_performances = train_on_task_sequence(tasks, test_tasks, model, optimizer)
     os.makedirs(args.run_name, exist_ok=True)
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     parser.add_argument("--img-size", nargs="+", type=int, default=(3, 32, 32))
     parser.add_argument("--buffer-size", type=int, default=425)
     parser.add_argument("--batch-size", type=int, default=10)
-    parser.add_argument("--lr", type=int, default=0.1)
+    parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--cross-validation", action="store_true")
     parser.add_argument("--cifar-split", default="cifar_split.json")
     parser.add_argument("--output-file", default="output.json")

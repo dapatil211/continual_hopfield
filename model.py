@@ -79,7 +79,7 @@ class TinyEpisodicMemoryModel(BaseModel):
     def __init__(self, buffer_size, logit_masks, img_size, num_classes=100):
         super().__init__()
         self.buffer = ListBuffer(buffer_size, img_size=img_size)
-        self.base = torchvision.models.resnet18(num_classes=100)
+        self.base = torchvision.models.resnet18(num_classes=num_classes)
         self.task_logit_masks = torch.tensor(logit_masks)
         self.loss_fn = nn.CrossEntropyLoss()
 
