@@ -110,7 +110,7 @@ def create_split_cifar100(args):
         )
 
     if args.same_head:
-        num_classes = 10
+        num_classes = 5
         logit_mask = np.ones((len(task_split), num_classes))
     else:
         num_classes = 100

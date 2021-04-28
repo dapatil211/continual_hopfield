@@ -41,19 +41,24 @@ def train_on_task_sequence(tasks, test_tasks, model, optimizer):
 def test_on_task_sequence(tasks, model, prev_accuracies):
     model.eval()
     metrics = {}
+    full_accuracy = 0.0
     for task_id, task in enumerate(tasks):
         accuracy = 0
         loss = 0
         for step, (X_batch, y_batch, task_classes_mask) in enumerate(iter(task)):
-            batch_accuracy, batch_loss = model.get_metrics(
-                X_batch, y_batch, task_classes_mask
-            )
-            accuracy += batch_accuracy
-            loss += batch_loss
+            with torch.no_grad():
+                batch_accuracy, batch_loss = model.get_metrics(
+                    X_batch, y_batch, task_classes_mask
+                )
+                accuracy += batch_accuracy
+                loss += batch_loss
+        accuracy = accuracy.cpu().item()
+        loss = loss.cpu().item()
         accuracy /= step + 1
         loss /= step + 1
         metrics[f"task_{task_id}_test_accuracy"] = accuracy
         metrics[f"task_{task_id}_test_loss"] = loss
+        full_accuracy+=accuracy
         if task_id in prev_accuracies:
             metrics[f"task_{task_id}_forgetting"] = (
                 max(prev_accuracies[task_id]) - accuracy
@@ -62,6 +67,7 @@ def test_on_task_sequence(tasks, model, prev_accuracies):
             prev_accuracies[task_id] = []
         prev_accuracies[task_id].append(accuracy)
 
+    metrics['test_average_accuracy'] = full_accuracy / len(tasks)
     return metrics
 
 

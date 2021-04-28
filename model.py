@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torchvision
+from modified_resnet import resnet18
 from torch import optim
 import copy
 from generative_replay import WGAN
@@ -13,6 +13,13 @@ def get_model(args):
         )
     return model
 
+def get_base_resnet(num_classes, skinny=False):
+    if skinny:
+        num_filters = [20, 20, 40, 80, 160]
+    else:
+        num_filters = [64, 64, 128, 256, 512]
+
+    return resnet18(num_classes=num_classes, num_filters=num_filters)
 
 class BaseModel(nn.Module):
     def switch_task(self):
@@ -79,7 +86,7 @@ class TinyEpisodicMemoryModel(BaseModel):
     def __init__(self, buffer_size, logit_masks, img_size, num_classes=100):
         super().__init__()
         self.buffer = ListBuffer(buffer_size, img_size=img_size)
-        self.base = torchvision.models.resnet18(num_classes=num_classes)
+        self.base = get_base_resnet(num_classes, skinny=True)
         self.task_logit_masks = torch.tensor(logit_masks)
         self.loss_fn = nn.CrossEntropyLoss()
 
