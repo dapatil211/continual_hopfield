@@ -1,7 +1,9 @@
+import argparse
 import torch
 import datsets
 import model as model_lib
 import wandb
+import json
 
 
 def train_on_task_sequence(tasks, test_tasks, model, optimizer):
@@ -22,6 +24,7 @@ def train_on_task_sequence(tasks, test_tasks, model, optimizer):
         metrics["test_step"] = task_id
         wandb.log(metrics)
         model.switch_task()
+    return task_performances
 
 
 def test_on_task_sequence(tasks, model, prev_metrics):
@@ -53,9 +56,24 @@ def test_on_task_sequence(tasks, model, prev_metrics):
 
 def main(args):
     wandb.init(config=args)
-    tasks = datasets.get_dataloaders(args.name)
+    tasks, test_tasks, num_classes, logit_masks = datasets.get_dataloaders(args)
+    args.num_classes = num_classes
+    args.logit_masks = logit_masks
     model = model_lib.get_model(args)
     optimizer = torch.optim.Adam(model.parameters, lr=args.lr)
     wandb.watch(model)
-    train_on_task_sequence(tasks, model, optimizer)
+    task_performances = train_on_task_sequence(tasks, model, optimizer)
+    with open(args.output_file, "w") as f:
+        json.dump(task_performances, f)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "model-name", choices=["tem"], default="tem")
+    parser.add_argument("--img-size", nargs="+", type=int, default=(3, 32, 32))
+    parser.add_argument("--buffer-size", type=int, default=425)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--cross-validation", action="store_true")
+    parser.add_argument("--cifar-split", default="cifar_split.json")
+    parser.add_argument("--same-head", action="store_true")
 

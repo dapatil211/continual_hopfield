@@ -4,7 +4,11 @@ import torchvision
 
 
 def get_model(args):
-    pass
+    if args.model_name == "tem":
+        model = TinyEpisodicMemoryModel(
+            args.buffer_size, args.logit_masks, args.img_size, args.num_classes
+        )
+    return model
 
 
 class BaseModel(nn.Module):
@@ -69,20 +73,30 @@ class ListBuffer(nn.Module):
 
 
 class TinyEpisodicMemoryModel(BaseModel):
-    def __init__(self, buffer_size, logit_masks, num_classes=100):
+    def __init__(self, buffer_size, logit_masks, img_size, num_classes=100):
         super().__init__()
-        self.buffer = ListBuffer(buffer_size)
+        self.buffer = ListBuffer(buffer_size, img_size=img_size)
         self.base = torchvision.models.resnet18(num_classes=100)
         self.task_logit_masks = logit_masks
+        self.loss_fn = nn.CrossEntropyLoss()
 
     def get_loss(self, X, y, task_ids):
-        batch_size = torch.shape
-        er_X, er_y, er_task_ids = self.buffer.sample()
+        batch_size = X.size(0)
+        er_X, er_y, er_task_ids = self.buffer.sample(batch_size)
         full_batch_X = torch.cat((X, er_X))
         full_batch_y = torch.cat((y, er_y))
         full_batch_task_ids = torch.cat((task_ids, er_task_ids))
         logits = self.base(full_batch_X)
         logits = logits * self.task_logit_masks[full_batch_task_ids]
+        loss = self.loss_fn(logits, full_batch_y)
 
         self.buffer.add_to_buffer(X, y, task_ids)
+        return loss
 
+    def get_metrics(self, X, y, task_ids):
+        logits = self.base(X)
+        logits = logits * self.task_logit_masks[task_ids]
+        loss = self.loss_fn(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        accuracy = (torch.sum(preds == y)) / X.size(0)
+        return accuracy, loss
