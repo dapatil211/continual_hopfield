@@ -130,7 +130,8 @@ class GenerativeReplay(BaseModel):
     ):
         super().__init__()
 
-        self.base = torchvision.models.resnet18(num_classes=num_classes)
+        # self.base = torchvision.models.resnet18(num_classes=num_classes)
+        self.base = get_base_resnet(num_classes, skinny=True)
         self.gen = WGAN(
             100, image_size, image_channel_size, critic_channel_size, generator_channel_size
         )

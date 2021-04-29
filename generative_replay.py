@@ -105,10 +105,6 @@ class WGAN(nn.Module):
         g = self.generator(z)
         c_x = self.critic(x).mean()
         c_g = self.critic(g).mean()
-        print("\n")
-        print(c_x)
-        print(c_g)
-        print("\n")
         l = -(c_x-c_g)
         return (l, g) if return_g else l
 
