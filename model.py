@@ -190,4 +190,5 @@ class GenerativeReplay(BaseModel):
             return
         x = self.prev_gen.sample(size)
         prev_scores = self.prev_base(x)
-        return x.data, prev_scores.data
+        _, predictions = torch.max(prev_scores, 1)
+        return x.data, predictions.data
