@@ -80,7 +80,7 @@ class WGAN(nn.Module):
         g_loss.backward()
         self.generator_optimizer.step()
 
-        return {'c_loss': c_loss.data[0], 'g_loss': g_loss.data[0]}
+        return {'c_loss': c_loss.data, 'g_loss': g_loss.data}
 
     def sample(self, size):
         return self.generator(self._noise(size))

@@ -93,7 +93,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model-name", choices=["tem"], default="tem")
+    parser.add_argument("-m", "--model-name", choices=["tem", "dgr"], default="tem")
     parser.add_argument(
         "-d", "--dataset-name", choices=["split_cifar100"], default="split_cifar100"
     )

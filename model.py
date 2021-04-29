@@ -3,6 +3,7 @@ import torch.nn as nn
 from modified_resnet import resnet18
 from torch import optim
 import copy
+import torchvision
 from generative_replay import WGAN
 
 
@@ -10,6 +11,10 @@ def get_model(args):
     if args.model_name == "tem":
         model = TinyEpisodicMemoryModel(
             args.buffer_size, args.logit_masks, args.img_size, args.num_classes
+        )
+    elif args.model_name == "dgr":
+        model = GenerativeReplay(
+            32, args.img_size[0], args.num_classes, 64, 64
         )
     return model
 
@@ -117,19 +122,17 @@ class TinyEpisodicMemoryModel(BaseModel):
 class GenerativeReplay(BaseModel):
     def __init__(
         self,
-        logit_masks,
         image_size,
         image_channel_size,
-        critic_channel_size,
-        generator_channel_size,
-        num_classes=100,
+        num_classes,
+        critic_channel_size=64,
+        generator_channel_size=64,
     ):
         super().__init__()
-        self.task_logit_masks = logit_masks
 
         self.base = torchvision.models.resnet18(num_classes=num_classes)
         self.gen = WGAN(
-            image_size, image_channel_size, critic_channel_size, generator_channel_size
+            100, image_size, image_channel_size, critic_channel_size, generator_channel_size
         )
 
         gen_g_optimizer = optim.Adam(
@@ -146,11 +149,13 @@ class GenerativeReplay(BaseModel):
         self.gen.set_critic_optimizer(gen_c_optimizer)
         self.gen.set_critic_updates_per_generator_update(5)
 
+        self.loss_fn = nn.CrossEntropyLoss()
+
         self.prev_base = None
         self.prev_gen = None
 
-    def get_loss(self, X, y):
-        batch_size = X.shape[0]
+    def get_loss(self, X, y, task_ids):
+        batch_size = X.size(0)
         er_X, er_y = None, None
         if self.prev_gen is not None:
             er_X, er_y = self.sample(batch_size)
@@ -160,8 +165,13 @@ class GenerativeReplay(BaseModel):
             full_batch_X = X
             full_batch_y = y
         logits = self.base(full_batch_X)
+        loss = self.loss_fn(logits, full_batch_y)
+        preds = torch.argmax(logits, dim=1)
+        accuracy = (torch.sum(preds == full_batch_y)) / full_batch_X.size(0)
 
         self.gen.train_a_batch(X, y, er_X, er_y)
+
+        return loss, {"accuracy": accuracy}
 
     def switch_task(self):
         self.prev_base = copy.deepcopy(self.base)
@@ -172,5 +182,4 @@ class GenerativeReplay(BaseModel):
             return
         x = self.prev_gen.sample(size)
         prev_scores = self.prev_base(x)
-        _, y = torch.max(prev_scores, 1)
-        return x.data, y.data
+        return x.data, prev_scores.data
