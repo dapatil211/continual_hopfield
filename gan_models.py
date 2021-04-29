@@ -27,14 +27,15 @@ class Critic(nn.Module):
             channel_size*4, channel_size*8,
             kernel_size=4, stride=1, padding=1,
         )
-        self.fc = nn.Linear((image_size//8)**2 * channel_size*4, 1)
+        # TODO
+        self.fc = nn.Linear(4608, 1)
 
     def forward(self, x):
         x = F.leaky_relu(self.conv1(x))
         x = F.leaky_relu(self.conv2(x))
         x = F.leaky_relu(self.conv3(x))
         x = F.leaky_relu(self.conv4(x))
-        x = x.view(-1, (self.image_size//8)**2 * self.channel_size*4)
+        x = x.view(-1, 4608)
         return self.fc(x)
 
 

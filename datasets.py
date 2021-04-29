@@ -131,8 +131,78 @@ def create_split_cifar100(args):
     )
 
 
-def create_split_mnist():
-    pass
+def create_split_mnist(args):
+    if args.mnist_split is not None and os.path.exists(args.mnist_split):
+        with open(args.mnist_split) as f:
+            task_split = json.load(f)
+    else:
+        classes = list(range(10))
+        random.shuffle(classes)
+        task_split = [sorted(classes[i * 2 : (i + 1) * 2]) for i in range(5)]
+        with open(args.mnist_split, "w") as f:
+            json.dump(task_split, f)
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ]
+    )
+    target_transform = create_target_transform(task_split) if args.same_head else None
+    train_dataset = torchvision.datasets.MNIST(
+        "data/mnist", download=True, transform=transform, target_transform=target_transform, train=True
+    )
+    test_dataset = torchvision.datasets.MNIST(
+        "data/mnist", download=True, transform=transform, target_transform=target_transform, train=False
+    )
+    split_train_dataloaders = []
+    split_test_dataloaders = []
+
+    for task_id, task in enumerate(task_split):
+        task_train_dataset = FilteredDataset(
+            train_dataset,
+            lambda x: x in task,
+            transform=create_task_transform(task_id),
+            metainfo_func=lambda dataset, i: dataset.targets[i],
+        )
+        split_train_dataloaders.append(
+            torch.utils.data.DataLoader(
+                task_train_dataset,
+                batch_size=args.batch_size,
+                shuffle=True,
+                num_workers=4,
+                pin_memory=True,
+                drop_last=True,
+            )
+        )
+        task_test_dataset = FilteredDataset(
+            test_dataset,
+            lambda x: x in task,
+            transform=create_task_transform(task_id),
+            metainfo_func=lambda dataset, i: dataset.targets[i],
+        )
+        split_test_dataloaders.append(
+            torch.utils.data.DataLoader(
+                task_test_dataset,
+                batch_size=args.batch_size,
+                shuffle=True,
+                num_workers=4,
+                pin_memory=True,
+                drop_last=True,
+            )
+        )
+
+    if args.same_head:
+        num_classes = 2
+        logit_mask = np.ones((len(task_split), num_classes))
+    else:
+        num_classes = 10
+        logit_mask = create_logit_masks(task_split, num_classes)
+    return (
+        split_train_dataloaders,
+        split_test_dataloaders,
+        num_classes,
+        logit_mask,
+    )
 
 
 def create_permuted_mnist():
@@ -147,5 +217,5 @@ def get_dataloaders(args):
     elif args.dataset_name == "permuted_mnist":
         return create_permuted_mnist(args)
 
-    raise ValueError(f"Dataset {name} is not available")
+    raise ValueError(f"Dataset {args.dataset_name} is not available")
 

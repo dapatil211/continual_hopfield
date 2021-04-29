@@ -43,7 +43,6 @@ class WGAN(nn.Module):
 
         # run the critic and back-propagate the errors.
         for _ in range(self.critic_updates_per_generator_update):
-            self.critic_optimizer.zero_grad()
             z = self._noise(x.size(0))
 
             # run the critic on the real data.
@@ -70,17 +69,18 @@ class WGAN(nn.Module):
                 c_loss = c_loss_real
                 c_loss_gp = c_loss_real_gp
 
+            self.critic_optimizer.zero_grad()
             c_loss_gp.backward()
             self.critic_optimizer.step()
 
         # run the generator and back-propagate the errors.
-        self.generator_optimizer.zero_grad()
         z = self._noise(x.size(0))
         g_loss = self._g_loss(z)
+        self.generator_optimizer.zero_grad()
         g_loss.backward()
         self.generator_optimizer.step()
 
-        return {'c_loss': c_loss.data[0], 'g_loss': g_loss.data[0]}
+        return {'c_loss': c_loss.data, 'g_loss': g_loss.data}
 
     def sample(self, size):
         return self.generator(self._noise(size))

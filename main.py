@@ -26,6 +26,7 @@ def train_on_task_sequence(tasks, test_tasks, model, optimizer, device):
             task_classes_mask = task_classes_mask.to(device=device)
             optimizer.zero_grad()
             loss, metrics = model.get_loss(X_batch, y_batch, task_classes_mask)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             metrics["loss"] = loss
@@ -115,9 +116,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model-name", choices=["tem", 'hopfield'], default="tem")
+    parser.add_argument("-m", "--model-name", choices=["tem", 'hopfield', 'dgr'], default="tem")
     parser.add_argument(
-        "-d", "--dataset-name", choices=["split_cifar100"], default="split_cifar100"
+        "-d", "--dataset-name", choices=["split_cifar100", "split_mnist"], default="split_cifar100"
     )
     parser.add_argument("--img-size", nargs="+", type=int, default=(3, 32, 32))
     parser.add_argument("--seed", type=int, default=42)
@@ -130,6 +131,7 @@ if __name__ == "__main__":
     parser.add_argument("--cross-validation", action="store_true")
     parser.add_argument("--data-dir", default="data/cifar100")
     parser.add_argument("--cifar-split", default="cifar_split.json")
+    parser.add_argument("--mnist-split", default="mnist_split.json")
     parser.add_argument("--output-file", default="output.json")
     parser.add_argument("--run-name", default="tem_split_cifar")
     parser.add_argument("--project-name", default="continual-hopfield")
