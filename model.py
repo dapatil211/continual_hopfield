@@ -173,6 +173,14 @@ class GenerativeReplay(BaseModel):
 
         return loss, {"accuracy": accuracy}
 
+    def get_metrics(self, X, y, task_ids):
+        logits = self.base(X)
+        logits = logits
+        loss = self.loss_fn(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        accuracy = (torch.sum(preds == y)) / X.size(0)
+        return accuracy, loss
+
     def switch_task(self):
         self.prev_base = copy.deepcopy(self.base)
         self.prev_gen = copy.deepcopy(self.gen)
