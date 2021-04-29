@@ -18,8 +18,8 @@ def train_on_task_sequence(tasks, test_tasks, model, optimizer):
         model.train()
         kbar = pkbar.Kbar(target=len(task), width=25)
         for step, (X_batch, y_batch, task_classes_mask) in enumerate(iter(task)):
-            optimizer.zero_grad()
             loss, metrics = model.get_loss(X_batch, y_batch, task_classes_mask)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             metrics["loss"] = loss
