@@ -52,15 +52,15 @@ def create_target_transform(task_split):
     return transforms.Lambda(lambda x: task_map[x])
 
 def create_split_cifar100(args):
-    if args.cifar_split is not None and os.path.exists(args.cifar_split):
-        with open(args.cifar_split) as f:
-            task_split = json.load(f)
-    else:
-        classes = list(range(100))
-        random.shuffle(classes)
-        task_split = [sorted(classes[i * 5 : (i + 1) * 5]) for i in range(20)]
-        with open(args.cifar_split, "w") as f:
-            json.dump(task_split, f)
+    # if args.cifar_split is not None and os.path.exists(args.cifar_split):
+    #     with open(args.cifar_split) as f:
+    #         task_split = json.load(f)
+    # else:
+    classes = list(range(100))
+    random.shuffle(classes)
+    task_split = [sorted(classes[i * 5 : (i + 1) * 5]) for i in range(20)]
+    # with open(args.cifar_split, "w") as f:
+    #     json.dump(task_split, f)
     transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -71,17 +71,17 @@ def create_split_cifar100(args):
     )
     target_transform = create_target_transform(task_split) if args.same_head else None
     train_dataset = torchvision.datasets.CIFAR100(
-        "data/cifar100", download=True, transform=transform, target_transform=target_transform, train=True
+        args.data_dir, download=True, transform=transform, target_transform=target_transform, train=True
     )
     test_dataset = torchvision.datasets.CIFAR100(
-        "data/cifar100", download=True, transform=transform, target_transform=target_transform, train=False
+        args.data_dir, download=True, transform=transform, target_transform=target_transform, train=False
     )
     split_train_dataloaders = []
     split_test_dataloaders = []
-    if args.cross_validation:
-        task_split = task_split[:3]
-    else:
-        task_split = task_split[3:]
+    # if args.cross_validation:
+    #     task_split = task_split[:3]
+    # else:
+    #     task_split = task_split[3:]
     
     for task_id, task in enumerate(task_split):
         task_train_dataset = FilteredDataset(
