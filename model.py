@@ -40,6 +40,8 @@ def get_model(args):
         )
     elif args.model_name == "dgr":
         model = GenerativeReplay(32, args.img_size[0], args.num_classes, 64, 64)
+    elif args.model_name == "finetune":
+        model = FineTuneModel(args.num_classes, not args.wide_resnet, args.device)
     return model
 
 
