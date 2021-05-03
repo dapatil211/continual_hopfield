@@ -16,8 +16,8 @@ import model as model_lib
 def train_on_task_sequence(tasks, test_tasks, model, optimizer, device):
     task_performances = {}
     for task_id, task in enumerate(tasks):
-        logging.info(f'Task {task_id}/{len(tasks)}')
-        logging.info('Training')
+        logging.info(f"Task {task_id}/{len(tasks)}")
+        logging.info("Training")
         model.train()
         kbar = pkbar.Kbar(target=len(task), width=25)
         for step, (X_batch, y_batch, task_classes_mask) in enumerate(iter(task)):
@@ -32,8 +32,10 @@ def train_on_task_sequence(tasks, test_tasks, model, optimizer, device):
             metrics["loss"] = loss
             metrics["task_step"] = step
             wandb.log(metrics)
-            kbar.update(step, values=[('loss', loss), ('accuracy', metrics['accuracy'])])
-        logging.info('Testing')
+            kbar.update(
+                step, values=[("loss", loss), ("accuracy", metrics["accuracy"])]
+            )
+        logging.info("Testing")
         metrics = test_on_task_sequence(
             test_tasks[: task_id + 1], model, task_performances, device
         )
@@ -69,7 +71,7 @@ def test_on_task_sequence(tasks, model, prev_accuracies, device):
         loss /= step + 1
         metrics[f"task_{task_id}_test_accuracy"] = accuracy
         metrics[f"task_{task_id}_test_loss"] = loss
-        full_accuracy+=accuracy
+        full_accuracy += accuracy
         if task_id in prev_accuracies:
             forgetting = max(prev_accuracies[task_id]) - accuracy
             metrics[f"task_{task_id}_forgetting"] = forgetting
@@ -79,22 +81,24 @@ def test_on_task_sequence(tasks, model, prev_accuracies, device):
             prev_accuracies[task_id] = []
         prev_accuracies[task_id].append(accuracy)
 
-    metrics['test_average_accuracy'] = full_accuracy / len(tasks)
+    metrics["test_average_accuracy"] = full_accuracy / len(tasks)
     if len(tasks) > 1:
-        metrics['test_average_forgetting'] = full_forgetting / (len(tasks) - 1)
+        metrics["test_average_forgetting"] = full_forgetting / (len(tasks) - 1)
     return metrics
+
 
 def set_seed(seed):
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
 
+
 def main(args):
     set_seed(args.seed)
     if not args.disable_cuda and torch.cuda.is_available():
-        args.device = torch.device('cuda')
+        args.device = torch.device("cuda")
     else:
-        args.device = torch.device('cpu')
+        args.device = torch.device("cpu")
     tasks, test_tasks, num_classes, logit_masks = datasets.get_dataloaders(args)
     args.num_classes = num_classes
     args.logit_masks = logit_masks
@@ -108,7 +112,9 @@ def main(args):
         tags=[args.model_name, args.dataset_name],
     )
     wandb.watch(model)
-    task_performances = train_on_task_sequence(tasks, test_tasks, model, optimizer, args.device)
+    task_performances = train_on_task_sequence(
+        tasks, test_tasks, model, optimizer, args.device
+    )
     os.makedirs(args.run_name, exist_ok=True)
     with open(os.path.join(args.run_name, args.output_file), "w") as f:
         json.dump(task_performances, f)
@@ -116,13 +122,18 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model-name", choices=["tem", 'hopfield', 'dgr'], default="tem")
     parser.add_argument(
-        "-d", "--dataset-name", choices=["split_cifar100", "split_mnist"], default="split_cifar100"
+        "-m", "--model-name", choices=["tem", "hopfield", "dgr"], default="tem"
+    )
+    parser.add_argument(
+        "-d",
+        "--dataset-name",
+        choices=["split_cifar100", "split_mnist"],
+        default="split_cifar100",
     )
     parser.add_argument("--img-size", nargs="+", type=int, default=(3, 32, 32))
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--buffer-size", type=int, default=425)
+    parser.add_argument("--buffer-size", type=int, default=500)
     parser.add_argument("--batch-size", type=int, default=10)
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--beta", type=float, default=2.0)
@@ -138,5 +149,6 @@ if __name__ == "__main__":
     parser.add_argument("--same-head", action="store_true")
     parser.add_argument("--wide-resnet", action="store_true")
     parser.add_argument("--disable-cuda", action="store_true")
+    parser.add_argument("--learn-examples", action="store_true")
     args = parser.parse_args()
     main(args)
