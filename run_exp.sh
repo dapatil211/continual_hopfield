@@ -7,11 +7,12 @@
 #SBATCH -o /miniscratch/darshan.patil/slurm/slurm-%j.out  # Write the log on tmp1
 
 
-MODEL="tem"
+MODEL="hopfield"
 REPLAY_WEIGHT="1.0"
-HOPFIELD_PROB=".5"
-PROJECT_NAME="cont_hopfield_final_2"
-RUN_NAME="${MODEL}_hp${HOPFIELD_PROB}"
+HOPFIELD_PROB=".2"
+PROJECT_NAME="cont_hopfield_final"
+EMBED_DIM=1024
+RUN_NAME="${MODEL}_ed${EMBED_DIM}_hp${HOPFIELD_PROB}"
 # 1. Load the required modules
 module --quiet load anaconda/3
 
@@ -35,6 +36,7 @@ do
                     --project-name ${PROJECT_NAME} \
                     --run-name ${RUN_NAME}\
                     --output-file ${OUTPUT_FILE} \
+                    --embed-dim ${EMBED_DIM} \
                     --seed ${SEED} 
 done
 # 5. Copy whatever you want to save on $SCRATCH

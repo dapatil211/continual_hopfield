@@ -138,6 +138,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--buffer-size", type=int, default=500)
     parser.add_argument("--batch-size", type=int, default=10)
+    parser.add_argument("--embed-dim", type=int, default=256)
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--beta", type=float, default=2.0)
     parser.add_argument("--replay-weight", type=float, default=1.0)

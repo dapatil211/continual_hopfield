@@ -36,12 +36,15 @@ def get_model(args):
             args.replay_weight,
             args.hopfield_prob,
             args.learn_examples,
+            args.embed_dim,
             args.device,
         )
     elif args.model_name == "dgr":
         model = GenerativeReplay(32, args.img_size[0], args.num_classes, 64, 64)
     elif args.model_name == "finetune":
-        model = FineTuneModel(args.num_classes, not args.wide_resnet, args.device)
+        model = FineTuneModel(
+            args.logit_masks, args.num_classes, not args.wide_resnet, args.device
+        )
     return model
 
 
@@ -176,8 +179,6 @@ class HopfieldTaskBuffer(nn.Module):
                 if self.num_classes_in_buffer[label] < self.examples_per_class:
                     idxs_to_add.append(idx)
                     self.num_classes_in_buffer[label] += 1
-                    # if self.total_added == self.total_size:
-                    #     break
             if len(idxs_to_add) > 0:
                 idxs_to_add = torch.tensor(idxs_to_add).to(device=self.device)
                 pattern = self.construct_pattern(X[idxs_to_add], y[idxs_to_add])
@@ -219,13 +220,14 @@ class HopfieldBuffer(ListBuffer):
         img_size=(3, 32, 32),
         hopfield_probability=0.5,
         beta=2.0,
+        embed_dim=256,
         device="cpu",
     ):
         super().__init__(buffer_size, img_size=img_size, device=device)
         self.hopfield_probability = hopfield_probability
         self.hopfield = Hopfield(
-            state_pattern_as_static=True,
-            stored_pattern_as_static=True,
+            input_size=3074,
+            hidden_size=embed_dim,
             pattern_projection_as_static=True,
             # do not pre-process layer input
             normalize_stored_pattern=False,
@@ -280,12 +282,10 @@ class HopfieldBuffer(ListBuffer):
             return X, y, task_ids
         else:
             return super().sample(X.size(0))
-        # sample_noise = torch.randn(batch_size * self.num_sample_per_image, *self.img_size) * self.noise
-        # sampleX = sample_noise + batch
 
 
 class FineTuneModel(BaseModel):
-    def __init__(logit_masks, num_classes=100, skinny=True, device="cpu"):
+    def __init__(self, logit_masks, num_classes=100, skinny=True, device="cpu"):
         super().__init__()
         self.base = get_base_resnet(num_classes, skinny=skinny)
         self.task_logit_masks = torch.tensor(logit_masks).to(device=device)
@@ -336,9 +336,6 @@ class TinyEpisodicMemoryModel(BaseModel):
         return loss, {"accuracy": accuracy}
 
     def get_metrics(self, X, y, task_ids):
-        # X = X.cuda()
-        # y = y.cuda()
-        # task_ids = task_ids.cuda()
         logits = self.base(X)
         logits = logits * self.task_logit_masks[task_ids]
         loss = self.loss_fn(logits, y)
@@ -359,6 +356,7 @@ class HopfieldReplayModel(TinyEpisodicMemoryModel):
         replay_weight=0.5,
         hopfield_probability=1.0,
         learn_examples=True,
+        embed_dim=256,
         device="cpu",
     ):
         super().__init__(
@@ -372,8 +370,9 @@ class HopfieldReplayModel(TinyEpisodicMemoryModel):
         self.buffer = HopfieldBuffer(
             buffer_size,
             img_size,
-            beta=beta,
             hopfield_probability=hopfield_probability,
+            beta=beta,
+            embed_dim=embed_dim,
             device=device,
         )
         self.replay_weight = replay_weight
